@@ -14,7 +14,7 @@ graphify-out/
 
 # IDE & Editor Configs
 .vscode/
-.idea/
+.idea
 *.suo
 *.user
 *.userosscache

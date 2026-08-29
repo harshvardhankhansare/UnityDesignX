@@ -6,7 +6,7 @@
 require_once __DIR__ . '/../includes/header.php';
 require_admin();
 
-$db = get_db();
+$db = get_db(); 
 
 // Handle Delete Message
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_msg_id'])) {
