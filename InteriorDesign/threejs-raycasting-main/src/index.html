@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UnityDesignX — 3D Room Configurator</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b0d11;
+      --surface: rgba(18, 22, 31, 0.9);
+      --border: rgba(255, 255, 255, 0.09);
+      --accent: #d4af37;
+      --accent-glow: rgba(212, 175, 55, 0.2);
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --red: #e63535;
+      --green: #10b981;
+      --radius: 12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* -------- Layout -------- */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr 300px;
+      grid-template-rows: 60px 1fr 52px;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* -------- Header Bar -------- */
+    .app-header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .brand {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand i { color: var(--accent); }
+    .brand span { color: var(--accent); }
+
+    .header-tools {
+      display: flex;
+      gap: 8px;
+    }
+
+    .hdr-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .hdr-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+    .hdr-btn.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 99px;
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.25);
+      color: var(--green);
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* -------- Left Panel: Room Settings -------- */
+    .left-panel {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel-section {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 13px;
+    }
+
+    .panel-section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .room-preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .room-preset-btn {
+      padding: 8px 6px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .room-preset-btn i { font-size: 1.2rem; color: var(--accent); }
+    .room-preset-btn:hover, .room-preset-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--text); }
+
+    /* Wall / Floor Color Pickers */
+    .prop-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .color-row {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .clr-dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.15s, border-color 0.15s;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .clr-dot:hover { transform: scale(1.2); }
+    .clr-dot.active { border-color: var(--accent); transform: scale(1.2); }
+
+    /* Floor Pattern Selector */
+    .floor-options {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .floor-opt {
+      height: 42px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--muted);
+      transition: all 0.2s;
+      overflow: hidden;
+      position: relative;
+    }
+    .floor-opt.active { border-color: var(--accent); }
+    .floor-opt span { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); font-size: 0.62rem; white-space: nowrap; }
+
+    /* Room Dimension Sliders */
+    .dim-control { margin-bottom: 10px; }
+    .dim-control label { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .dim-control label span { color: var(--accent); font-weight: 600; }
+    .dim-control input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+    /* -------- 3D Canvas -------- */
+    .canvas-wrapper {
+      position: relative;
+      overflow: hidden;
+      background: #07090e;
+    }
+
+    #room-canvas { width: 100%; height: 100%; display: block; cursor: default; }
+
+    /* Viewport Overlay Labels */
+    .viewport-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+    }
+
+    /* Measurement Overlay */
+    .measure-overlay {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .measure-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 5px 14px;
+      border-radius: 99px;
+      font-size: 0.78rem;
+      color: var(--text);
+      backdrop-filter: blur(8px);
+    }
+    .measure-chip i { color: var(--accent); margin-right: 4px; }
+
+    /* Drag Tooltip */
+    .drag-hint {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    /* -------- Right Panel: Furniture Catalog + Inspector -------- */
+    .right-panel {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .right-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab-content { flex: 1; overflow-y: auto; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* Catalog Items */
+    .catalog-search {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .catalog-search i { color: var(--muted); }
+    .catalog-search input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 0.82rem;
+      flex: 1;
+      outline: none;
+    }
+
+    .catalog-list { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+    .catalog-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .catalog-item:hover { background: var(--accent-glow); border-color: var(--accent); }
+
+    .catalog-item img {
+      width: 52px;
+      height: 52px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #1a1e29;
+    }
+
+    .catalog-item-info { flex: 1; }
+    .catalog-item-name { font-size: 0.82rem; font-weight: 600; margin-bottom: 2px; }
+    .catalog-item-cat { font-size: 0.72rem; color: var(--muted); }
+    .catalog-item-price { font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 700; color: var(--accent); }
+
+    .add-to-room-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      color: #000;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+    .add-to-room-btn:hover { transform: scale(1.15); }
+
+    /* Inspector Panel */
+    .inspector-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: var(--muted);
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+    .inspector-empty i { font-size: 2rem; opacity: 0.3; }
+
+    .inspector-body { padding: 12px; display: flex; flex-direction: column; gap: 14px; }
+
+    .inspector-name {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .inspector-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+    .insp-section-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .color-swatches { display: flex; gap: 7px; flex-wrap: wrap; }
+    .swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+    .swatch:hover { transform: scale(1.15); }
+    .swatch.active { border-color: var(--accent); transform: scale(1.15); box-shadow: 0 0 10px rgba(212,175,55,0.5); }
+
+    .finish-row { display: flex; gap: 5px; }
+    .finish-btn {
+      flex: 1;
+      padding: 6px 4px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .finish-btn:hover, .finish-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+
+    .scale-row { margin-bottom: 8px; }
+    .scale-row label { font-size: 0.75rem; color: var(--muted); display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .scale-row label span { color: var(--text); font-weight: 600; }
+    .scale-row input { width: 100%; accent-color: var(--accent); }
+
+    .insp-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .insp-btn {
+      padding: 8px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+    .insp-btn:hover { background: rgba(255,255,255,0.09); }
+    .insp-btn.danger { background: rgba(230,53,53,0.12); border-color: rgba(230,53,53,0.3); color: #f87171; }
+    .insp-btn.danger:hover { background: var(--red); color: #fff; }
+
+    /* Dimensions display */
+    .dim-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      background: rgba(212,175,55,0.12);
+      border: 1px solid rgba(212,175,55,0.3);
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* -------- Status Bar -------- */
+    .status-bar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .status-bar .items-count { color: var(--text); font-weight: 600; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(18,22,31,0.95);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      padding: 10px 20px;
+      border-radius: 99px;
+      font-size: 0.85rem;
+      color: var(--text);
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast i { color: var(--accent); margin-right: 6px; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+  </style>
+</head>
+
+<body>
+<div class="app-layout">
+
+  <!-- ====== HEADER ====== -->
+  <header class="app-header">
+    <div class="brand">
+      <i class="fa-solid fa-compass-drafting"></i>
+      Unity<span>DesignX</span> &nbsp;<span style="font-size:0.75rem;color:var(--muted);font-weight:500;font-family:'Inter'">3D Room Configurator</span>
+    </div>
+
+    <div class="header-tools">
+      <button class="hdr-btn" onclick="switchView('perspective')"><i class="fa-solid fa-cube"></i> 3D View</button>
+      <button class="hdr-btn" onclick="switchView('top')"><i class="fa-solid fa-border-all"></i> Floor Plan</button>
+      <button class="hdr-btn" id="lightCycleBtn" onclick="cycleLighting()"><i class="fa-solid fa-sun"></i> Daylight</button>
+      <button class="hdr-btn primary" onclick="saveSnapshot()"><i class="fa-solid fa-camera"></i> Save Design</button>
+    </div>
+
+    <div class="header-status">
+      <div class="status-pill"><div class="status-dot"></div> Live Preview</div>
+      <span id="roomLabel">Bedroom Layout</span>
+    </div>
+  </header>
+
+  <!-- ====== LEFT PANEL ====== -->
+  <div class="left-panel">
+
+    <!-- Room Presets -->
+    <div class="panel-section">
+      <div class="panel-section-title"><i class="fa-solid fa-house"></i> Room Presets</div>
+      <div class="room-preset-grid">
+        <button class="room-preset-btn active" onclick="loadPreset('bedroom', this)"><i class="fa-solid fa-bed"></i>Bedroom</button>
+        <button class="room-preset-btn" onclick="loadPreset('living', this)"><i class="fa-solid fa-couch"></i>Living Room</button>
+        <button class="room-preset-btn" onclick="loadPreset('lounge', this)"><i class="fa-solid fa-chair"></i>Lounge</button>
+        <button class="room-preset-btn" onclick="loadPreset('dining', this)"><i class="fa-solid fa-utensils"></i>Dining Area</button>
+        <button class="room-preset-btn" onclick="loadPreset('office', this)"><i class="fa-solid fa-briefcase"></i>Home Office</button>
+        <button class="room-preset-btn" onclick="loadPreset('empty', this)"><i class="fa-solid fa-maximize"></i>Empty Room</button>
+      </div>
+    </div>
+
+    <!-- Room Dimensions -->
+    <div class="panel-section">
+      <div class="panel-section-title"><i class="fa-solid fa-ruler-combined"></i> Room Dimensions</div>
+      <div class="dim-control">
+        <label>Width &nbsp;<span id="roomWidthVal">5.0m</span></label>
+        <input type="range" min="3" max="10" step="0.5" value="5" id="roomWidthSlider" oninput="updateRoomSize()" />
+      </div>
+      <div class="dim-control">
+        <label>Length &nbsp;<span id="roomLenVal">6.0m</span></label>
+        <input type="range" min="3" max="12" step="0.5" value="6" id="roomLenSlider" oninput="updateRoomSize()" />
+      </div>
+      <div class="dim-control">
+        <label>Ceiling Height &nbsp;<span id="ceilVal">2.8m</span></label>
+        <input type="range" min="2.2" max="4" step="0.2" value="2.8" id="ceilSlider" oninput="updateRoomSize()" />
+      </div>
+    </div>
+
+    <!-- Wall Colors -->
+    <div class="panel-section">
+      <div class="panel-section-title"><i class="fa-solid fa-paintbrush"></i> Wall Paint</div>
+      <div class="color-row" id="wallColors">
+        <div class="clr-dot active" style="background:#e8e0d0" onclick="setWallColor('#e8e0d0',this)" title="Warm Ivory"></div>
+        <div class="clr-dot" style="background:#c8d6e0" onclick="setWallColor('#c8d6e0',this)" title="Soft Blue"></div>
+        <div class="clr-dot" style="background:#ddd0c8" onclick="setWallColor('#ddd0c8',this)" title="Warm Taupe"></div>
+        <div class="clr-dot" style="background:#c5d4c5" onclick="setWallColor('#c5d4c5',this)" title="Sage Green"></div>
+        <div class="clr-dot" style="background:#1e222d" onclick="setWallColor('#1e222d',this)" title="Charcoal Dark"></div>
+        <div class="clr-dot" style="background:#2c1810" onclick="setWallColor('#2c1810',this)" title="Rich Espresso"></div>
+        <div class="clr-dot" style="background:#f5f0eb" onclick="setWallColor('#f5f0eb',this)" title="Studio White"></div>
+      </div>
+    </div>
+
+    <!-- Floor Material -->
+    <div class="panel-section">
+      <div class="panel-section-title"><i class="fa-solid fa-table-cells-large"></i> Floor Material</div>
+      <div class="floor-options">
+        <div class="floor-opt active" style="background: repeating-linear-gradient(90deg, #8B6914 0px, #8B6914 15px, #A0792A 15px, #A0792A 30px);" onclick="setFloor('oak',this)"><span>Oak Wood</span></div>
+        <div class="floor-opt" style="background: repeating-linear-gradient(45deg, #555 0px, #555 10px, #444 10px, #444 20px);" onclick="setFloor('marble',this)"><span>Marble</span></div>
+        <div class="floor-opt" style="background: repeating-linear-gradient(90deg, #555 0px, #555 8px, #484848 8px, #484848 16px);" onclick="setFloor('concrete',this)"><span>Concrete</span></div>
+        <div class="floor-opt" style="background: repeating-linear-gradient(90deg, #3d2b1f 0px, #3d2b1f 20px, #2e1f15 20px, #2e1f15 40px);" onclick="setFloor('walnut',this)"><span>Walnut</span></div>
+        <div class="floor-opt" style="background: #d4c5a0;" onclick="setFloor('carpet',this)"><span>Beige Carpet</span></div>
+        <div class="floor-opt" style="background: repeating-linear-gradient(0deg, #c8b070 0, #c8b070 15px, #b89a50 15px, #b89a50 30px);" onclick="setFloor('bamboo',this)"><span>Bamboo</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ====== 3D CANVAS ====== -->
+  <div class="canvas-wrapper">
+    <canvas id="room-canvas"></canvas>
+
+    <div class="viewport-badge"><i class="fa-solid fa-video" style="color:var(--accent)"></i> &nbsp;3D Perspective View</div>
+    <div class="drag-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Orbit · Scroll Zoom · Click Furniture to Customize</div>
+
+    <div class="measure-overlay">
+      <div class="measure-chip" id="widthChip"><i class="fa-solid fa-arrows-left-right"></i><span id="widthMeasure">5.0m wide</span></div>
+      <div class="measure-chip" id="lenChip"><i class="fa-solid fa-arrows-up-down"></i><span id="lenMeasure">6.0m long</span></div>
+      <div class="measure-chip"><i class="fa-solid fa-layer-group"></i><span id="ceilMeasure">2.8m ceiling</span></div>
+      <div class="measure-chip"><i class="fa-solid fa-chair"></i><span id="itemCountChip">3 items placed</span></div>
+    </div>
+  </div>
+
+  <!-- ====== RIGHT PANEL ====== -->
+  <div class="right-panel">
+    <div class="right-tabs">
+      <button class="tab-btn active" onclick="switchTab('catalog', this)"><i class="fa-solid fa-store"></i> Catalog</button>
+      <button class="tab-btn" onclick="switchTab('inspector', this)"><i class="fa-solid fa-sliders"></i> Customize</button>
+    </div>
+
+    <!-- Catalog Tab -->
+    <div class="tab-content">
+      <div id="tab-catalog" class="tab-pane active">
+        <div class="catalog-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="catalogSearch" placeholder="Search furniture..." oninput="filterCatalog()" />
+        </div>
+        <div class="catalog-list" id="catalogList">
+          <!-- Populated by JS from our product catalog -->
+        </div>
+      </div>
+
+      <!-- Inspector Tab -->
+      <div id="tab-inspector" class="tab-pane">
+        <div id="inspectorEmpty" class="inspector-empty">
+          <i class="fa-regular fa-hand-pointer"></i>
+          <div>Click a furniture item in the room<br>to open the inspector</div>
+        </div>
+
+        <div id="inspectorBody" class="inspector-body" style="display:none;">
+          <div>
+            <div class="inspector-name" id="inspName">IKEA KALLAX Bed Frame</div>
+            <div class="inspector-sub" id="inspSub">Beds & Bedroom · ₹1,100.00</div>
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+              <span class="dim-badge" id="inspDimW"><i class="fa-solid fa-arrows-left-right"></i> W: 1.8m</span>
+              <span class="dim-badge" id="inspDimH"><i class="fa-solid fa-arrows-up-down"></i> H: 1.0m</span>
+              <span class="dim-badge" id="inspDimD"><i class="fa-solid fa-maximize"></i> D: 2.2m</span>
+            </div>
+          </div>
+
+          <!-- Color -->
+          <div>
+            <div class="insp-section-label">Color Finish</div>
+            <div class="color-swatches" id="inspColorSwatches">
+              <div class="swatch active" style="background:#c19a6b;" onclick="applyColor('#c19a6b',this)" title="Natural Oak"></div>
+              <div class="swatch" style="background:#3b2314;" onclick="applyColor('#3b2314',this)" title="Dark Mahogany"></div>
+              <div class="swatch" style="background:#d4af37;" onclick="applyColor('#d4af37',this)" title="Amber Gold"></div>
+              <div class="swatch" style="background:#1e222d;" onclick="applyColor('#1e222d',this)" title="Velvet Black"></div>
+              <div class="swatch" style="background:#f5f0eb;" onclick="applyColor('#f5f0eb',this)" title="Chalk White"></div>
+              <div class="swatch" style="background:#7c6c5c;" onclick="applyColor('#7c6c5c',this)" title="Warm Grey"></div>
+            </div>
+          </div>
+
+          <!-- Material Finish -->
+          <div>
+            <div class="insp-section-label">Material Finish</div>
+            <div class="finish-row">
+              <button class="finish-btn active" onclick="applyFinish(0.5,0.1,this)">Wood</button>
+              <button class="finish-btn" onclick="applyFinish(0.95,0.0,this)">Matte</button>
+              <button class="finish-btn" onclick="applyFinish(0.15,0.9,this)">Metal</button>
+              <button class="finish-btn" onclick="applyFinish(0.9,0.05,this)">Fabric</button>
+            </div>
+          </div>
+
+          <!-- Scale -->
+          <div>
+            <div class="insp-section-label">Scale</div>
+            <div class="scale-row">
+              <label>Uniform Size &nbsp;<span id="scaleVal">100%</span></label>
+              <input type="range" id="scaleSlider" min="50" max="180" step="5" value="100" oninput="applyScale()" />
+            </div>
+            <div class="scale-row">
+              <label>Rotation &nbsp;<span id="rotVal">0°</span></label>
+              <input type="range" id="rotSlider" min="0" max="315" step="45" value="0" oninput="applyRotation()" />
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div>
+            <div class="insp-section-label">Actions</div>
+            <div class="insp-actions">
+              <button class="insp-btn" onclick="duplicateSelected()"><i class="fa-solid fa-copy"></i> Duplicate</button>
+              <button class="insp-btn" onclick="centerSelected()"><i class="fa-solid fa-crosshairs"></i> Center</button>
+              <button class="insp-btn danger" onclick="deleteSelected()"><i class="fa-solid fa-trash"></i> Remove</button>
+              <button class="insp-btn" id="addToCartBtn" onclick="addToCartAction()"><i class="fa-solid fa-bag-shopping"></i> Add to Cart</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== STATUS BAR ====== -->
+  <div class="status-bar">
+    <div>
+      <i class="fa-solid fa-layer-group" style="color:var(--accent)"></i>
+      Furniture placed: <span class="items-count" id="itemCountStatus">3</span>
+    </div>
+    <div id="selectedStatus" style="color:var(--accent)">No item selected</div>
+    <div>
+      <i class="fa-solid fa-circle-info" style="color:var(--accent)"></i>
+      Orbit: Left drag &nbsp;|&nbsp; Zoom: Scroll &nbsp;|&nbsp; Select: Click
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast" id="toast"></div>
+
+<!-- THREE.JS + OrbitControls loaded in <head> -->
+<script>
+// ============================================================
+// CATALOG DATA — mirrors the database products we seeded
+// ============================================================
+const CATALOG = [
+  // Beds
+  { id:1,  name:'IKEA KALLAX Bed Frame',      cat:'Beds & Bedroom',        price:1100, img:'Categories/product category/FURNITURE/Beds/Images/bed1.jpg',        color:0xc19a6b, type:'bed',           w:180, h:70,  d:220 },
+  { id:2,  name:'BRIMNES Platform Bed',        cat:'Beds & Bedroom',        price:870,  img:'Categories/product category/FURNITURE/Beds/Images/bed2.jpg',         color:0x6b7280, type:'bed',           w:160, h:60,  d:210 },
+  { id:3,  name:'Plush Velvet Bed',            cat:'Beds & Bedroom',        price:1500, img:'Categories/product category/FURNITURE/Beds/Images/bed7.jpg',         color:0x1e222d, type:'bed',           w:180, h:80,  d:220 },
+  // Cabinets
+  { id:4,  name:'BRIMNES Bookcase',            cat:'Cabinetry & Storage',   price:800,  img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin3.jpg',  color:0xddd0c8, type:'cabinet',       w:80,  h:180, d:40  },
+  { id:5,  name:'Nordic Oak Cabinet',          cat:'Cabinetry & Storage',   price:1250, img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin6.jpg',  color:0x8B6914, type:'cabinet',       w:120, h:160, d:50  },
+  // Rugs, Lamps, Desk
+  { id:6,  name:'Acoustical Hardwood Rug',     cat:'Flooring & Tiles',      price:650,  img:'Categories/product category/FURNITURE/Beds/Images/bed3.jpg',         color:0xc19a6b, type:'rug',           w:200, h:4,   d:150 },
+  { id:7,  name:'Linear LED Pendant',          cat:'Lighting',              price:420,  img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin4.jpg',  color:0xd4af37, type:'lamp',          w:20,  h:120, d:20  },
+  { id:8,  name:'Executive Desk',              cat:'Office Furniture',      price:1850, img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin1.jpg',  color:0x3b2314, type:'desk',          w:160, h:76,  d:80  },
+  // Chairs & Lounge
+  { id:9,  name:'Linen Accent Chair',          cat:'Chairs & Seating',      price:680,  img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin2.jpg',  color:0xc8b090, type:'chair',         w:70,  h:85,  d:75  },
+  { id:10, name:'Velvet Tub Chair',            cat:'Chairs & Seating',      price:920,  img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin5.jpg',  color:0x5c4a7a, type:'chair',         w:75,  h:80,  d:72  },
+  { id:11, name:'Mid-Century Lounge Chair',    cat:'Chairs & Seating',      price:1340, img:'Categories/product category/FURNITURE/Beds/Images/bed6.jpg',         color:0x8B4513, type:'lounge-chair',  w:90,  h:80,  d:100 },
+  { id:12, name:'Scandinavian Sofa 3-Seat',   cat:'Sofas & Sectionals',    price:2800, img:'Categories/product category/FURNITURE/Beds/Images/bed4.jpg',         color:0xa8947a, type:'sofa',          w:220, h:80,  d:90  },
+  { id:13, name:'Chesterfield Sofa',          cat:'Sofas & Sectionals',    price:3200, img:'Categories/product category/FURNITURE/Beds/Images/bed5.jpg',         color:0x2c3e50, type:'sofa',          w:240, h:85,  d:95  },
+  // Dining
+  { id:14, name:'Marble Dining Table',        cat:'Dining Room',           price:2200, img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin7.jpg',  color:0xe8e4dc, type:'dining-table',  w:160, h:76,  d:90  },
+  { id:15, name:'Solid Oak Dining Table',     cat:'Dining Room',           price:1800, img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin8.jpg',  color:0x8B5E3C, type:'dining-table',  w:180, h:76,  d:90  },
+  { id:16, name:'Padded Dining Chair',        cat:'Dining Room',           price:380,  img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin9.jpg',  color:0xd4c5a0, type:'dining-chair',  w:48,  h:88,  d:52  },
+  { id:17, name:'Wishbone Dining Chair',      cat:'Dining Room',           price:490,  img:'Categories/product category/FURNITURE/Beds/Images/bed8.jpg',         color:0xc19a6b, type:'dining-chair',  w:50,  h:85,  d:50  },
+  { id:18, name:'Rattan Bar Stool',           cat:'Dining Room',           price:320,  img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin3.jpg',  color:0xa0784a, type:'stool',         w:38,  h:76,  d:38  },
+  { id:19, name:'Marble Sideboard',           cat:'Dining Room',           price:1650, img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin6.jpg',  color:0xe8e4dc, type:'sideboard',     w:160, h:80,  d:45  },
+  { id:20, name:'Walnut Sideboard',           cat:'Dining Room',           price:1400, img:'Categories/product category/FURNITURE/Cabinetry/Images/cabin1.jpg',  color:0x4a2c17, type:'sideboard',     w:140, h:75,  d:45  },
+];
+
+// ============================================================
+// THREE.JS SCENE SETUP
+// ============================================================
+const canvas = document.getElementById('room-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a2030);
+
+const camera = new THREE.PerspectiveCamera(42, 1, 1, 5000);
+camera.position.set(0, 380, 650);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.maxPolarAngle = Math.PI / 2 - 0.03;
+controls.minDistance = 100;
+controls.maxDistance = 1200;
+controls.target.set(0, 80, 0);
+
+// ============================================================
+// ROOM MESH REFERENCES
+// ============================================================
+let roomGroup = new THREE.Group();
+scene.add(roomGroup);
+
+let floorMesh, backWall, leftWall, rightWall, frontWallL, frontWallR, ceilMesh;
+let roomW = 500, roomL = 600, roomH = 280;
+let wallMat, floorMat;
+
+// Floor color presets
+const FLOOR_COLORS = {
+  oak:      0x8B6914,
+  marble:   0xe8e4dc,
+  concrete: 0x888888,
+  walnut:   0x3d2b1f,
+  carpet:   0xd4c5a0,
+  bamboo:   0xc8b070,
+};
+
+const FLOOR_ROUGHNESS = { oak:0.6, marble:0.15, concrete:0.85, walnut:0.55, carpet:0.95, bamboo:0.7 };
+const FLOOR_METALNESS = { oak:0.05, marble:0.25, concrete:0.05, walnut:0.08, carpet:0.0, bamboo:0.06 };
+
+let currentFloorType = 'oak';
+let currentWallHex = 0xe8e0d0;
+
+function buildRoom() {
+  roomGroup.clear();
+
+  const wMat = new THREE.MeshStandardMaterial({ color: currentWallHex, roughness: 0.85, metalness: 0 });
+  const fMat = new THREE.MeshStandardMaterial({
+    color: FLOOR_COLORS[currentFloorType],
+    roughness: FLOOR_ROUGHNESS[currentFloorType],
+    metalness: FLOOR_METALNESS[currentFloorType],
+  });
+
+  wallMat = wMat;
+  floorMat = fMat;
+
+  const halfW = roomW/2, halfL = roomL/2, H = roomH;
+
+  // Floor
+  floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomL), fMat);
+  floorMesh.rotation.x = -Math.PI/2;
+  floorMesh.receiveShadow = true;
+  floorMesh.userData.isRoom = true;
+  roomGroup.add(floorMesh);
+
+  // Ceiling
+  ceilMesh = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomL), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, side: THREE.BackSide }));
+  ceilMesh.position.y = H;
+  ceilMesh.rotation.x = -Math.PI/2;
+  ceilMesh.userData.isRoom = true;
+  roomGroup.add(ceilMesh);
+
+  // Back wall (far Z)
+  backWall = new THREE.Mesh(new THREE.PlaneGeometry(roomW, H), wMat);
+  backWall.position.set(0, H/2, -halfL);
+  backWall.userData.isRoom = true;
+  backWall.receiveShadow = true;
+  roomGroup.add(backWall);
+
+  // Left wall
+  leftWall = new THREE.Mesh(new THREE.PlaneGeometry(roomL, H), wMat);
+  leftWall.position.set(-halfW, H/2, 0);
+  leftWall.rotation.y = Math.PI/2;
+  leftWall.userData.isRoom = true;
+  leftWall.receiveShadow = true;
+  roomGroup.add(leftWall);
+
+  // Right wall
+  rightWall = new THREE.Mesh(new THREE.PlaneGeometry(roomL, H), wMat);
+  rightWall.position.set(halfW, H/2, 0);
+  rightWall.rotation.y = -Math.PI/2;
+  rightWall.userData.isRoom = true;
+  rightWall.receiveShadow = true;
+  roomGroup.add(rightWall);
+
+  // Front wall (viewer side, split by virtual doorway)
+  frontWallL = new THREE.Mesh(new THREE.PlaneGeometry(halfW - 70, H), wMat);
+  frontWallL.position.set(-halfW/2 - 35, H/2, halfL);
+  frontWallL.rotation.y = Math.PI;
+  frontWallL.userData.isRoom = true;
+  roomGroup.add(frontWallL);
+
+  frontWallR = new THREE.Mesh(new THREE.PlaneGeometry(halfW - 70, H), wMat);
+  frontWallR.position.set(halfW/2 + 35, H/2, halfL);
+  frontWallR.rotation.y = Math.PI;
+  frontWallR.userData.isRoom = true;
+  roomGroup.add(frontWallR);
+
+  // Baseboard strips
+  addBaseboards();
+
+  // Ceiling recessed lights
+  addCeilingLights();
+}
+
+function addBaseboards() {
+  const bMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  const bH = 8;
+  const halfW = roomW/2, halfL = roomL/2;
+
+  const positions = [
+    {w: roomW, rot: 0, x: 0, z: -halfL + 1},
+    {w: roomW, rot: 0, x: 0, z: halfL - 1},
+    {w: roomL, rot: Math.PI/2, x: -halfW + 1, z: 0},
+    {w: roomL, rot: Math.PI/2, x: halfW - 1, z: 0},
+  ];
+  positions.forEach(p => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(p.w, bH, 3), bMat);
+    b.position.set(p.x, bH/2, p.z);
+    b.rotation.y = p.rot;
+    b.userData.isRoom = true;
+    roomGroup.add(b);
+  });
+}
+
+function addCeilingLights() {
+  // Remove old spotlights tracked in roomGroup already (they're cleared with roomGroup.clear())
+  // Recessed ceiling spots — attach to scene but track in an array for cleanup
+  const halfW = roomW/2, halfL = roomL/2;
+  const spotPositions = [
+    [-halfW*0.4, roomH - 5, -halfL*0.4],
+    [ halfW*0.4, roomH - 5, -halfL*0.4],
+    [-halfW*0.4, roomH - 5,  halfL*0.4],
+    [ halfW*0.4, roomH - 5,  halfL*0.4],
+  ];
+
+  // Remove old spots
+  scene.children.filter(c => c.isSpotLight || (c.isObject3D && c._isRoomSpot)).forEach(c => scene.remove(c));
+
+  spotPositions.forEach(([x, y, z]) => {
+    const spotLight = new THREE.SpotLight(0xfff5e0, 0.7, roomW * 2, Math.PI/6, 0.4, 1.5);
+    spotLight.position.set(x, y, z);
+    spotLight.target.position.set(x, 0, z);
+    spotLight.castShadow = true;
+    spotLight.shadow.mapSize.width = 512;
+    spotLight._isRoomSpot = true;
+    scene.add(spotLight);
+    scene.add(spotLight.target);
+
+    // Visible fixture disc (in roomGroup so it gets cleared)
+    const fix = new THREE.Mesh(
+      new THREE.CylinderGeometry(10, 10, 4, 16),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff5e0, emissiveIntensity: 0.8 })
+    );
+    fix.position.set(x, roomH - 2, z);
+    fix.userData.isRoom = true;
+    roomGroup.add(fix);
+  });
+}
+
+// ============================================================
+// GLOBAL LIGHTING
+// ============================================================
+let ambientLight = new THREE.AmbientLight(0xffeedd, 0.55);
+scene.add(ambientLight);
+
+let sunLight = new THREE.DirectionalLight(0xffffff, 0.9);
+sunLight.position.set(300, 500, 200);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 2000;
+sunLight.shadow.camera.left = -600;
+sunLight.shadow.camera.right = 600;
+sunLight.shadow.camera.top = 600;
+sunLight.shadow.camera.bottom = -600;
+scene.add(sunLight);
+
+const lightPresets = [
+  { name:'Daylight',   ambient: 0xffeedd, ambientI: 0.55, sun: 0xffffff, sunI: 0.9  },
+  { name:'Warm Eve',   ambient: 0xffddaa, ambientI: 0.4,  sun: 0xff9944, sunI: 0.7  },
+  { name:'Night Mode', ambient: 0x3050a0, ambientI: 0.2,  sun: 0x8899cc, sunI: 0.25 },
+];
+let lightIndex = 0;
+
+function cycleLighting() {
+  lightIndex = (lightIndex + 1) % lightPresets.length;
+  const p = lightPresets[lightIndex];
+  ambientLight.color.setStyle(p.ambient);
+  ambientLight.intensity = p.ambientI;
+  sunLight.color.setStyle(p.sun);
+  sunLight.intensity = p.sunI;
+  document.getElementById('lightCycleBtn').innerHTML = `<i class="fa-solid fa-sun"></i> ${p.name}`;
+  showToast(`Lighting: ${p.name}`);
+}
+
+// ============================================================
+// FURNITURE SYSTEM
+// ============================================================
+const placedObjects = [];
+let selectedObject = null;
+
+function buildFurnitureMesh(item) {
+  const group = new THREE.Group();
+  const mat = () => new THREE.MeshStandardMaterial({ color: item.color, roughness: 0.55, metalness: 0.08 });
+  const darkMat = () => new THREE.MeshStandardMaterial({ color: 0x1e222d, roughness: 0.9, metalness: 0 });
+  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf5f0eb, roughness: 0.9, metalness: 0 });
+  const chromeMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.1, metalness: 0.9 });
+
+  if (item.type === 'bed') {
+    // Frame
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(item.w, 30, item.d), mat());
+    frame.position.y = 15; frame.castShadow = true; frame.receiveShadow = true;
+    group.add(frame);
+    // Headboard
+    const hb = new THREE.Mesh(new THREE.BoxGeometry(item.w, 80, 16), darkMat());
+    hb.position.set(0, 55, -item.d/2 + 8); hb.castShadow = true;
+    group.add(hb);
+    // Mattress
+    const mattress = new THREE.Mesh(new THREE.BoxGeometry(item.w - 12, 28, item.d - 20), whiteMat);
+    mattress.position.y = 44; mattress.castShadow = true;
+    group.add(mattress);
+    // Pillow
+    const pillow = new THREE.Mesh(new THREE.BoxGeometry(70, 12, 45), whiteMat);
+    pillow.position.set(0, 60, -item.d/2 + 50); pillow.castShadow = true;
+    group.add(pillow);
+
+  } else if (item.type === 'cabinet') {
+    // Body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(item.w, item.h, item.d), mat());
+    body.position.y = item.h/2; body.castShadow = true; body.receiveShadow = true;
+    group.add(body);
+    // Glass panel front
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xaaccff, metalness: 0, roughness: 0, transmission: 0.85, transparent: true, opacity: 1 });
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(item.w - 16, item.h - 20, 2), glassMat);
+    glass.position.set(0, item.h/2, item.d/2);
+    group.add(glass);
+    // Handle
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, item.w/2, 8), chromeMat);
+    handle.rotation.z = Math.PI/2;
+    handle.position.set(0, item.h/2, item.d/2 + 5);
+    group.add(handle);
+
+  } else if (item.type === 'desk') {
+    // Desk surface
+    const top = new THREE.Mesh(new THREE.BoxGeometry(item.w, 6, item.d), mat());
+    top.position.y = item.h; top.castShadow = true; top.receiveShadow = true;
+    group.add(top);
+    // Legs (4 corner)
+    for (let xs of [-1, 1]) for (let zs of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(6, item.h, 6), mat());
+      leg.position.set(xs * (item.w/2 - 8), item.h/2, zs * (item.d/2 - 8));
+      leg.castShadow = true;
+      group.add(leg);
+    }
+    // Modesty panel
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(item.w - 20, item.h * 0.6, 4), mat());
+    panel.position.set(0, item.h * 0.3, -item.d/2 + 2);
+    group.add(panel);
+
+  } else if (item.type === 'lamp') {
+    // Pole
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, item.h - 30, 8), chromeMat);
+    pole.position.y = (item.h - 30)/2; pole.castShadow = true;
+    group.add(pole);
+    // Shade
+    const shadeMat = new THREE.MeshStandardMaterial({ color: item.color, roughness: 0.8, emissive: item.color, emissiveIntensity: 0.15 });
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(20, 30, 16, 1, true), shadeMat);
+    shade.position.y = item.h - 15;
+    group.add(shade);
+    // Point light
+    const lamp = new THREE.PointLight(0xfff5e0, 0.5, 250);
+    lamp.position.y = item.h - 10;
+    group.add(lamp);
+
+  } else if (item.type === 'rug') {
+    const rug = new THREE.Mesh(new THREE.PlaneGeometry(item.w, item.d), new THREE.MeshStandardMaterial({ color: item.color, roughness: 0.95, metalness: 0 }));
+    rug.rotation.x = -Math.PI/2;
+    rug.position.y = 2;
+    rug.receiveShadow = true;
+    group.add(rug);
+
+  } else if (item.type === 'chair') {
+    // Seat cushion
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(item.w, 16, item.d - 10), mat());
+    seat.position.y = 44; seat.castShadow = true; seat.receiveShadow = true;
+    group.add(seat);
+    // Back rest
+    const back = new THREE.Mesh(new THREE.BoxGeometry(item.w, item.h - 44, 12), mat());
+    back.position.set(0, 44 + (item.h - 44)/2, -(item.d/2 - 6)); back.castShadow = true;
+    group.add(back);
+    // 4 tapered legs
+    for (let xs of [-1, 1]) for (let zs of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 1.5, 44, 8), chromeMat);
+      leg.position.set(xs * (item.w/2 - 8), 22, zs * (item.d/2 - 8));
+      leg.castShadow = true;
+      group.add(leg);
+    }
+    // Armrests
+    for (let xs of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(10, 8, item.d - 15), mat());
+      arm.position.set(xs * (item.w/2 - 5), 58, 0);
+      group.add(arm);
+    }
+
+  } else if (item.type === 'lounge-chair') {
+    // Wide bucket seat
+    const seatLow = new THREE.Mesh(new THREE.BoxGeometry(item.w, 20, item.d - 20), mat());
+    seatLow.position.y = 36; seatLow.castShadow = true; seatLow.receiveShadow = true;
+    group.add(seatLow);
+    // Reclined back (angled)
+    const backPanel = new THREE.Mesh(new THREE.BoxGeometry(item.w, item.h - 40, 14), mat());
+    backPanel.position.set(0, 40 + (item.h - 40)/2, -(item.d/2 - 7));
+    backPanel.rotation.x = 0.12;
+    backPanel.castShadow = true;
+    group.add(backPanel);
+    // Ottoman footrest
+    const otto = new THREE.Mesh(new THREE.BoxGeometry(item.w - 10, 30, 50), mat());
+    otto.position.set(0, 15, item.d/2 + 15); otto.castShadow = true; otto.receiveShadow = true;
+    group.add(otto);
+    // Sled base
+    for (let xs of [-1, 1]) {
+      const sled = new THREE.Mesh(new THREE.BoxGeometry(6, 6, item.d + 50), chromeMat);
+      sled.position.set(xs * (item.w/2 - 6), 4, 0);
+      group.add(sled);
+    }
+
+  } else if (item.type === 'sofa') {
+    // Main body
+    const base = new THREE.Mesh(new THREE.BoxGeometry(item.w, 22, item.d), mat());
+    base.position.y = 20; base.castShadow = true; base.receiveShadow = true;
+    group.add(base);
+    // Seat cushions (3 sections)
+    const segW = item.w / 3;
+    for (let i = 0; i < 3; i++) {
+      const cush = new THREE.Mesh(new THREE.BoxGeometry(segW - 6, 18, item.d - 20), mat());
+      cush.position.set(-item.w/2 + segW/2 + i*segW + i*2, 40, 0);
+      cush.castShadow = true;
+      group.add(cush);
+    }
+    // Back rest
+    const backSofa = new THREE.Mesh(new THREE.BoxGeometry(item.w, item.h - 42, 16), mat());
+    backSofa.position.set(0, 42 + (item.h - 42)/2, -(item.d/2 - 8)); backSofa.castShadow = true;
+    group.add(backSofa);
+    // Side arms
+    for (let xs of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(16, item.h - 10, item.d), mat());
+      arm.position.set(xs * (item.w/2 + 8), (item.h - 10)/2 + 5, 0);
+      arm.castShadow = true;
+      group.add(arm);
+    }
+    // Legs
+    for (let xs of [-1, 1]) for (let zs of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(8, 18, 8), chromeMat);
+      leg.position.set(xs * (item.w/2 - 10), 9, zs * (item.d/2 - 10));
+      leg.castShadow = true;
+      group.add(leg);
+    }
+
+  } else if (item.type === 'dining-table') {
+    // Tabletop (thicker for marble look)
+    const topMat = new THREE.MeshStandardMaterial({ color: item.color, roughness: item.color === 0xe8e4dc ? 0.1 : 0.5, metalness: item.color === 0xe8e4dc ? 0.3 : 0.05 });
+    const tabletop = new THREE.Mesh(new THREE.BoxGeometry(item.w, 10, item.d), topMat);
+    tabletop.position.y = item.h; tabletop.castShadow = true; tabletop.receiveShadow = true;
+    group.add(tabletop);
+    // Apron rails
+    for (let side of [{x:0,z:item.d/2-4,w:item.w-30,d:4},{x:0,z:-(item.d/2-4),w:item.w-30,d:4},{x:item.w/2-4,z:0,w:4,d:item.d-30},{x:-(item.w/2-4),z:0,w:4,d:item.d-30}]) {
+      const apron = new THREE.Mesh(new THREE.BoxGeometry(side.w, 14, side.d), mat());
+      apron.position.set(side.x, item.h - 12, side.z);
+      group.add(apron);
+    }
+    // 4 tapered legs
+    for (let xs of [-1, 1]) for (let zs of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(4, 2.5, item.h - 10, 8), mat());
+      leg.position.set(xs * (item.w/2 - 14), (item.h - 10)/2, zs * (item.d/2 - 14));
+      leg.castShadow = true;
+      group.add(leg);
+    }
+
+  } else if (item.type === 'dining-chair') {
+    // Seat
+    const dseat = new THREE.Mesh(new THREE.BoxGeometry(item.w, 10, item.d - 8), mat());
+    dseat.position.y = 46; dseat.castShadow = true; dseat.receiveShadow = true;
+    group.add(dseat);
+    // Seat pad
+    const seatPad = new THREE.Mesh(new THREE.BoxGeometry(item.w - 8, 8, item.d - 16), new THREE.MeshStandardMaterial({ color: 0xf0e8d8, roughness: 0.9 }));
+    seatPad.position.y = 54;
+    group.add(seatPad);
+    // Back slats (3 slats)
+    for (let i = -1; i <= 1; i++) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(10, 34, 4), mat());
+      slat.position.set(i * (item.w/2 - 10), 64, -(item.d/2 - 2));
+      group.add(slat);
+    }
+    // Top rail
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(item.w, 8, 6), mat());
+    rail.position.set(0, 84, -(item.d/2 - 3));
+    group.add(rail);
+    // 4 legs (back angled slightly)
+    for (let xs of [-1, 1]) {
+      // Front leg
+      const fl = new THREE.Mesh(new THREE.CylinderGeometry(2, 1.5, 46, 8), mat());
+      fl.position.set(xs * (item.w/2 - 6), 23, item.d/2 - 6);
+      fl.castShadow = true;
+      group.add(fl);
+      // Back leg (angled)
+      const bl = new THREE.Mesh(new THREE.CylinderGeometry(2, 1.5, 52, 8), mat());
+      bl.position.set(xs * (item.w/2 - 6), 26, -(item.d/2 - 6));
+      bl.rotation.x = 0.1;
+      bl.castShadow = true;
+      group.add(bl);
+    }
+
+  } else if (item.type === 'stool') {
+    // Round padded seat
+    const stoolSeat = new THREE.Mesh(new THREE.CylinderGeometry(item.w/2, item.w/2 - 3, 14, 16), mat());
+    stoolSeat.position.y = item.h; stoolSeat.castShadow = true;
+    group.add(stoolSeat);
+    // Single post
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(5, 6, item.h - 14, 10), chromeMat);
+    post.position.y = (item.h - 14)/2; post.castShadow = true;
+    group.add(post);
+    // Footrest ring
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(item.w/2 - 4, 2, 6, 20), chromeMat);
+    ring.rotation.x = Math.PI/2;
+    ring.position.y = item.h * 0.45;
+    group.add(ring);
+    // Base star (5 points)
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(item.w/2, item.w/2, 4, 5), chromeMat);
+    base.position.y = 2;
+    group.add(base);
+
+  } else if (item.type === 'sideboard') {
+    // Body
+    const sbBody = new THREE.Mesh(new THREE.BoxGeometry(item.w, item.h - 20, item.d), mat());
+    sbBody.position.y = 10 + (item.h - 20)/2; sbBody.castShadow = true; sbBody.receiveShadow = true;
+    group.add(sbBody);
+    // Top surface (contrasting)
+    const sbTop = new THREE.Mesh(new THREE.BoxGeometry(item.w + 6, 6, item.d + 6), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.1 }));
+    sbTop.position.y = item.h - 3;
+    group.add(sbTop);
+    // Door dividers (3 sections)
+    for (let i = -1; i <= 1; i++) {
+      const div = new THREE.Mesh(new THREE.BoxGeometry(3, item.h - 26, 3), new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.5 }));
+      div.position.set(i * (item.w/3), 10 + (item.h - 26)/2, item.d/2);
+      group.add(div);
+    }
+    // Handles (3)
+    for (let i = -1; i <= 1; i++) {
+      const hdl = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 22, 8), chromeMat);
+      hdl.rotation.z = Math.PI/2;
+      hdl.position.set(i * (item.w/3), item.h/2, item.d/2 + 5);
+      group.add(hdl);
+    }
+    // Legs
+    for (let xs of [-1, 1]) for (let zs of [-1, 1]) {
+      const sbLeg = new THREE.Mesh(new THREE.BoxGeometry(6, 18, 6), new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.2, metalness: 0.8 }));
+      sbLeg.position.set(xs * (item.w/2 - 6), 9, zs * (item.d/2 - 6));
+      group.add(sbLeg);
+    }
+
+  } else {
+    // Fallback generic box
+    const generic = new THREE.Mesh(new THREE.BoxGeometry(item.w, item.h, item.d), mat());
+    generic.position.y = item.h/2; generic.castShadow = true; generic.receiveShadow = true;
+    group.add(generic);
+  }
+
+  group.userData = { item, catalogId: item.id, baseColor: item.color };
+  group.position.set(0, 0, 0);
+  return group;
+}
+
+function placeFurniture(item, x, z) {
+  const mesh = buildFurnitureMesh(item);
+  mesh.position.set(x || (Math.random() - 0.5) * (roomW - item.w - 40), 0, z || (Math.random() - 0.5) * (roomL - item.d - 40));
+  scene.add(mesh);
+  placedObjects.push(mesh);
+  updateItemCount();
+  selectObject(mesh);
+  return mesh;
+}
+
+// ============================================================
+// ROOM PRESETS
+// ============================================================
+const PRESETS = {
+  bedroom: [
+    { item: CATALOG[0],  x: 0,    z: -180 },
+    { item: CATALOG[3],  x: -220, z: -220 },
+    { item: CATALOG[6],  x: -180, z: 100  },
+  ],
+  living: [
+    { item: CATALOG[11], x: 0,    z: 50   },   // Scandinavian Sofa
+    { item: CATALOG[8],  x: -190, z: -30  },   // Linen Accent Chair
+    { item: CATALOG[9],  x: 190,  z: -30  },   // Velvet Tub Chair
+    { item: CATALOG[5],  x: 0,    z: 10   },   // Area Rug under sofa
+    { item: CATALOG[6],  x: 200,  z: 200  },   // Pendant Lamp
+    { item: CATALOG[4],  x: -210, z: -200 },   // Cabinet
+  ],
+  lounge: [
+    { item: CATALOG[10], x: -100, z: -80  },   // Mid-Century Lounge Chair 1
+    { item: CATALOG[10], x:  120, z:  60  },   // Mid-Century Lounge Chair 2
+    { item: CATALOG[8],  x:   30, z: -160 },   // Accent Chair
+    { item: CATALOG[11], x:   -5, z:  150 },   // Sofa in background
+    { item: CATALOG[5],  x:   10, z:   40 },   // Central rug
+    { item: CATALOG[6],  x: -220, z:  200 },   // Lamp
+  ],
+  dining: [
+    { item: CATALOG[13], x: 0,    z: -30  },   // Marble Dining Table centre
+    { item: CATALOG[15], x: -90,  z: -30  },   // Dining Chair left 1
+    { item: CATALOG[15], x:  90,  z: -30  },   // Dining Chair right 1
+    { item: CATALOG[16], x: -90,  z:  50  },   // Wishbone Chair left 2
+    { item: CATALOG[16], x:  90,  z:  50  },   // Wishbone Chair right 2
+    { item: CATALOG[18], x: 220,  z: -180 },   // Sideboard
+    { item: CATALOG[17], x:  200, z:  160 },   // Bar stool
+    { item: CATALOG[6],  x: -200, z:  160 },   // Pendant lamp
+  ],
+  office: [
+    { item: CATALOG[7],  x: 0,    z: -100 },
+    { item: CATALOG[4],  x: -200, z: -200 },
+    { item: CATALOG[8],  x: 120,  z: -70  },   // Accent Chair at desk
+  ],
+  empty: [],
+};
+
+// Per-preset environment config (wall hex, floor type)
+const PRESET_ENV = {
+  bedroom: { wall: '#e8e0d0', floor: 'oak'      },
+  living:  { wall: '#ddd0c8', floor: 'carpet'   },
+  lounge:  { wall: '#c5d4c5', floor: 'walnut'   },
+  dining:  { wall: '#f5f0eb', floor: 'marble'   },
+  office:  { wall: '#c8d6e0', floor: 'concrete' },
+  empty:   { wall: '#e8e0d0', floor: 'oak'      },
+};
+
+function clearFurniture() {
+  placedObjects.forEach(o => scene.remove(o));
+  placedObjects.length = 0;
+  deselectObject();
+}
+
+function loadPreset(name, btn) {
+  clearFurniture();
+  document.querySelectorAll('.room-preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const roomLabels = {
+    bedroom: 'Bedroom Layout',
+    living:  'Living Room Layout',
+    lounge:  'Lounge & Seating Area',
+    dining:  'Dining Room Setup',
+    office:  'Home Office Layout',
+    empty:   'Empty Room',
+  };
+  document.getElementById('roomLabel').innerText = roomLabels[name] || name;
+
+  // Auto-apply room-specific wall colour & floor
+  const env = PRESET_ENV[name];
+  if (env) {
+    currentWallHex = parseInt(env.wall.replace('#','0x'));
+    currentFloorType = env.floor;
+    // Sync UI wall colour dots
+    document.querySelectorAll('#wallColors .clr-dot').forEach(d => {
+      d.classList.toggle('active', d.getAttribute('onclick')?.includes(env.wall));
+    });
+    // Sync floor option tiles
+    document.querySelectorAll('.floor-opt').forEach(d => {
+      d.classList.toggle('active', d.getAttribute('onclick')?.includes(`'${env.floor}'`));
+    });
+    buildRoom();
+    resizeRenderer();
+  }
+
+  // Reset camera to default perspective view
+  camera.position.set(0, 380, 650);
+  controls.target.set(0, 80, 0);
+  controls.update();
+
+  (PRESETS[name] || []).forEach(p => {
+    placeFurniture(p.item, p.x, p.z);
+  });
+
+  deselectObject();
+  updateItemCount();
+  showToast(`🛋️ Loaded: ${roomLabels[name]}`);
+}
+
+// ============================================================
+// ROOM DIMENSIONS
+// ============================================================
+function updateRoomSize() {
+  const W = parseFloat(document.getElementById('roomWidthSlider').value);
+  const L = parseFloat(document.getElementById('roomLenSlider').value);
+  const H = parseFloat(document.getElementById('ceilSlider').value);
+
+  roomW = W * 100;
+  roomL = L * 100;
+  roomH = H * 100;
+
+  document.getElementById('roomWidthVal').innerText = `${W.toFixed(1)}m`;
+  document.getElementById('roomLenVal').innerText = `${L.toFixed(1)}m`;
+  document.getElementById('ceilVal').innerText = `${H.toFixed(1)}m`;
+
+  document.getElementById('widthMeasure').innerText = `${W.toFixed(1)}m wide`;
+  document.getElementById('lenMeasure').innerText = `${L.toFixed(1)}m long`;
+  document.getElementById('ceilMeasure').innerText = `${H.toFixed(1)}m ceiling`;
+
+  buildRoom();
+}
+
+// ============================================================
+// WALL / FLOOR CONTROLS
+// ============================================================
+function setWallColor(hex, el) {
+  document.querySelectorAll('#wallColors .clr-dot').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+  currentWallHex = parseInt(hex.replace('#', '0x'));
+  buildRoom();
+}
+
+function setFloor(type, el) {
+  document.querySelectorAll('.floor-opt').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+  currentFloorType = type;
+  buildRoom();
+}
+
+// ============================================================
+// RAYCASTING & DRAG SYSTEM
+// ============================================================
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const dragPoint = new THREE.Vector3();
+let isDragging = false;
+let dragOffset = new THREE.Vector3();
+
+canvas.addEventListener('pointerdown', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(scene.children, true);
+
+  if (hits.length > 0) {
+    let hit = hits[0].object;
+    while (hit.parent && !placedObjects.includes(hit)) hit = hit.parent;
+
+    if (placedObjects.includes(hit)) {
+      selectObject(hit);
+      isDragging = true;
+      controls.enabled = false;
+
+      if (raycaster.ray.intersectPlane(dragPlane, dragPoint)) {
+        dragOffset.subVectors(hit.position, dragPoint);
+      }
+    } else {
+      deselectObject();
+    }
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (!isDragging || !selectedObject) return;
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  if (raycaster.ray.intersectPlane(dragPlane, dragPoint)) {
+    const newX = dragPoint.x + dragOffset.x;
+    const newZ = dragPoint.z + dragOffset.z;
+    const halfW = roomW/2 - 30;
+    const halfL = roomL/2 - 30;
+    selectedObject.position.x = Math.max(-halfW, Math.min(halfW, newX));
+    selectedObject.position.z = Math.max(-halfL, Math.min(halfL, newZ));
+  }
+});
+
+canvas.addEventListener('pointerup', () => {
+  isDragging = false;
+  controls.enabled = true;
+});
+
+// ============================================================
+// SELECTION & INSPECTOR
+// ============================================================
+function selectObject(obj) {
+  selectedObject = obj;
+  const it = obj.userData.item;
+
+  // Highlight — outline effect via scale nudge
+  document.getElementById('inspectorEmpty').style.display = 'none';
+  document.getElementById('inspectorBody').style.display = 'flex';
+  document.getElementById('inspName').innerText = it.name;
+  document.getElementById('inspSub').innerText = `${it.cat} · ₹${it.price.toLocaleString('en-IN')}`;
+  document.getElementById('inspDimW').innerHTML = `<i class="fa-solid fa-arrows-left-right"></i> W: ${(it.w/100).toFixed(1)}m`;
+  document.getElementById('inspDimH').innerHTML = `<i class="fa-solid fa-arrows-up-down"></i> H: ${(it.h/100).toFixed(1)}m`;
+  document.getElementById('inspDimD').innerHTML = `<i class="fa-solid fa-maximize"></i> D: ${(it.d/100).toFixed(1)}m`;
+  document.getElementById('selectedStatus').innerText = `Selected: ${it.name}`;
+
+  // Reset sliders
+  document.getElementById('scaleSlider').value = Math.round(obj.scale.x * 100);
+  document.getElementById('scaleVal').innerText = `${Math.round(obj.scale.x * 100)}%`;
+  document.getElementById('rotSlider').value = Math.round((obj.rotation.y * 180 / Math.PI + 360) % 360 / 45) * 45;
+  document.getElementById('rotVal').innerText = `${document.getElementById('rotSlider').value}°`;
+
+  // Switch tab
+  document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-inspector').classList.add('active');
+  document.querySelectorAll('.tab-btn')[1].classList.add('active');
+}
+
+function deselectObject() {
+  selectedObject = null;
+  document.getElementById('inspectorEmpty').style.display = 'flex';
+  document.getElementById('inspectorBody').style.display = 'none';
+  document.getElementById('selectedStatus').innerText = 'No item selected';
+}
+
+// ============================================================
+// INSPECTOR ACTIONS
+// ============================================================
+function applyColor(hex, el) {
+  if (!selectedObject) return;
+  document.querySelectorAll('#inspColorSwatches .swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  selectedObject.traverse(child => {
+    if (child.isMesh && child.material && !child.material.transmission) {
+      child.material.color.setStyle(hex);
+    }
+  });
+}
+
+function applyFinish(roughness, metalness, btn) {
+  if (!selectedObject) return;
+  document.querySelectorAll('.finish-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedObject.traverse(child => {
+    if (child.isMesh && child.material && !child.material.transmission) {
+      child.material.roughness = roughness;
+      child.material.metalness = metalness;
+    }
+  });
+}
+
+function applyScale() {
+  if (!selectedObject) return;
+  const v = parseInt(document.getElementById('scaleSlider').value) / 100;
+  selectedObject.scale.setScalar(v);
+  document.getElementById('scaleVal').innerText = `${Math.round(v * 100)}%`;
+}
+
+function applyRotation() {
+  if (!selectedObject) return;
+  const deg = parseInt(document.getElementById('rotSlider').value);
+  selectedObject.rotation.y = (deg * Math.PI) / 180;
+  document.getElementById('rotVal').innerText = `${deg}°`;
+}
+
+function duplicateSelected() {
+  if (!selectedObject) return;
+  const clone = selectedObject.clone(true);
+  clone.position.set(selectedObject.position.x + 40, 0, selectedObject.position.z + 40);
+  clone.userData = JSON.parse(JSON.stringify(selectedObject.userData));
+  scene.add(clone);
+  placedObjects.push(clone);
+  updateItemCount();
+  selectObject(clone);
+  showToast('Item duplicated');
+}
+
+function centerSelected() {
+  if (!selectedObject) return;
+  selectedObject.position.x = 0;
+  selectedObject.position.z = 0;
+  showToast('Centered in room');
+}
+
+function deleteSelected() {
+  if (!selectedObject) return;
+  scene.remove(selectedObject);
+  const idx = placedObjects.indexOf(selectedObject);
+  if (idx > -1) placedObjects.splice(idx, 1);
+  deselectObject();
+  updateItemCount();
+  showToast('Item removed from room');
+}
+
+function addToCartAction() {
+  if (!selectedObject) return;
+  const it = selectedObject.userData.item;
+  showToast(`<i class="fa-solid fa-bag-shopping"></i> "${it.name}" added to cart!`);
+  // In production: window.parent.postMessage({action:'addToCart', id: it.id, qty: 1}, '*');
+}
+
+// ============================================================
+// CATALOG PANEL
+// ============================================================
+function renderCatalog(items) {
+  const list = document.getElementById('catalogList');
+  list.innerHTML = items.map(item => `
+    <div class="catalog-item">
+      <img src="${item.img}" alt="${item.name}" onerror="this.style.background='#2d3244'" />
+      <div class="catalog-item-info">
+        <div class="catalog-item-name">${item.name}</div>
+        <div class="catalog-item-cat">${item.cat}</div>
+        <div class="catalog-item-price">₹${item.price.toLocaleString('en-IN')}</div>
+      </div>
+      <button class="add-to-room-btn" onclick="placeFurniture(CATALOG[${CATALOG.indexOf(item)}])" title="Add to Room">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+function filterCatalog() {
+  const q = document.getElementById('catalogSearch').value.toLowerCase();
+  renderCatalog(CATALOG.filter(i => i.name.toLowerCase().includes(q) || i.cat.toLowerCase().includes(q)));
+}
+
+// ============================================================
+// UI UTILITIES
+// ============================================================
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  btn.classList.add('active');
+}
+
+function switchView(type) {
+  if (type === 'top') {
+    camera.position.set(0, 900, 1);
+    camera.lookAt(0, 0, 0);
+    controls.target.set(0, 0, 0);
+    document.querySelector('.viewport-badge').innerHTML = '<i class="fa-solid fa-border-all" style="color:var(--accent)"></i> &nbsp;Floor Plan View';
+  } else {
+    camera.position.set(0, 380, 650);
+    controls.target.set(0, 80, 0);
+    document.querySelector('.viewport-badge').innerHTML = '<i class="fa-solid fa-video" style="color:var(--accent)"></i> &nbsp;3D Perspective View';
+  }
+}
+
+function updateItemCount() {
+  const count = placedObjects.length;
+  document.getElementById('itemCountStatus').innerText = count;
+  document.getElementById('itemCountChip').innerText = `${count} item${count !== 1 ? 's' : ''} placed`;
+}
+
+function showToast(msg, duration = 2200) {
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function saveSnapshot() {
+  renderer.render(scene, camera);
+  const url = canvas.toDataURL('image/png');
+  const a = document.createElement('a'); a.download = 'UnityDesignX_Room.png'; a.href = url; a.click();
+  showToast('<i class="fa-solid fa-camera"></i> Design snapshot saved!');
+}
+
+// ============================================================
+// RESIZE HANDLER
+// ============================================================
+function resizeRenderer() {
+  const wrapper = canvas.parentElement;
+  const W = wrapper.clientWidth, H = wrapper.clientHeight;
+  renderer.setSize(W, H, false);
+  camera.aspect = W / H;
+  camera.updateProjectionMatrix();
+}
+
+window.addEventListener('resize', resizeRenderer);
+
+// ============================================================
+// ANIMATION LOOP
+// ============================================================
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+buildRoom();
+renderCatalog(CATALOG);
+loadPreset('bedroom', document.querySelector('.room-preset-btn'));
+resizeRenderer();
+animate();
+
+// Initial update
+updateRoomSize();
+</script>
+
+</body>
+</html>
