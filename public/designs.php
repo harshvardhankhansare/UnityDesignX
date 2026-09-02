@@ -33,7 +33,7 @@ require_once __DIR__ . '/../includes/header.php';
 
             <!-- Embedded 3D Canvas Frame -->
             <div style="position: relative; width: 100%; height: 600px; background: #000;">
-                <iframe src="http://localhost:8085/" 
+                <iframe src="<?= APP_URL ?>/InteriorDesign/threejs-raycasting-main/src/index.html" 
                         style="width: 100%; height: 100%; border: none;" 
                         title="Interactive 3D Three.js Room Planner">
                 </iframe>
